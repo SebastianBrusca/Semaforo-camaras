@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Semáforo de Cámaras</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<a id="shutdown-btn" href="/shutdown" onclick="return confirm('¿Querés cerrar el semáforo?')">
+  ⏻ Cerrar semáforo
+</a>
+
+<h1>🚦 Semáforo de Cámaras</h1>
+
+<form id="form">
+  <input id="name" placeholder="Nombre (opcional)">
+  <input id="ip" placeholder="IP (ej: 10.10.8.101)" required>
+  <button>Agregar</button>
+</form>
+
+<div id="grid" class="grid"></div>
+
+<script>
+/* ================== FRONTEND ================== */
+
+const grid = document.getElementById("grid");
+const form = document.getElementById("form");
+const nameInput = document.getElementById("name");
+const ipInput = document.getElementById("ip");
+
+/* ================== RENDER ================== */
+function render(cameras) {
+  grid.innerHTML = "";
+
+  cameras.forEach(cam => {
+    const div = document.createElement("div");
+    div.className = "item " + (cam.online ? "ok" : "fail");
+
+    div.innerHTML = `
+      <div class="circle"></div>
+
+      <div class="name">${cam.name}</div>
+      <div class="ip">${cam.ip}</div>
+
+      <div class="meta">
+        ${cam.online ? "Online" : "Offline"}<br>
+        Último OK: ${cam.last_seen}
+      </div>
+
+      <div class="delete" title="Eliminar cámara">✖</div>
+    `;
+
+    // botón eliminar
+    div.querySelector(".delete").addEventListener("click", () => {
+      eliminarIP(cam.ip);
+    });
+
+    grid.appendChild(div);
+  });
+}
+
+/* ================== STATUS ================== */
+async function actualizar() {
+  try {
+    const r = await fetch("/api/status", { cache: "no-store" });
+    if (!r.ok) return;
+    const data = await r.json();
+    render(data);
+  } catch (e) {}
+}
+
+/* ================== FORMULARIO ================== */
+form.addEventListener("submit", async e => {
+  e.preventDefault();
+
+  const name = nameInput.value.trim();
+  const ip = ipInput.value.trim();
+  if (!ip) return;
+
+  try {
+    const r = await fetch("/api/ips", { cache: "no-store" });
+    const list = r.ok ? await r.json() : [];
+
+    list.push({ name, ip });
+
+    await fetch("/api/ips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(list)
+    });
+
+    nameInput.value = "";
+    ipInput.value = "";
+    actualizar();
+  } catch (e) {}
+});
+
+/* ================== ELIMINAR IP ================== */
+async function eliminarIP(ip) {
+  if (!confirm(`¿Eliminar la cámara ${ip}?`)) return;
+
+  try {
+    const r = await fetch("/api/ips", { cache: "no-store" });
+    const list = r.ok ? await r.json() : [];
+
+    const nueva = list.filter(item => item.ip !== ip);
+
+    await fetch("/api/ips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(nueva)
+    });
+
+    actualizar();
+  } catch (e) {}
+}
+
+/* ================== LOOP ================== */
+actualizar();
+setInterval(actualizar, 2000);
+</script>
+
+</body>
+</html>
