@@ -1,0 +1,374 @@
+/* ================== RESET ================== */
+* { box-sizing: border-box; }
+
+/* ================== SCROLL GLOBAL ================== */
+html, body{ height: 100%; overflow: hidden; }
+
+/* ================== BODY ================== */
+body{
+  margin: 0;
+  padding: 24px;
+  font-family: system-ui, Arial;
+  color: #e6edf3;
+
+  background:
+    linear-gradient(rgba(0,0,0,0.40), rgba(0,0,0,0.55)),
+    url("bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+
+  min-height: 100vh;
+}
+
+/* ================== TOP ACTIONS ================== */
+.top-actions{
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  gap: 12px;
+  z-index: 9999;
+}
+
+/* ================== HEADER FIJO ================== */
+.header-fixed{
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: transparent;
+}
+
+/* ================== TITLE ================== */
+h1{
+  margin: 0 0 18px 0;
+  font-size: 34px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ================== FORM ================== */
+form{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 24px 0;
+  flex-wrap: wrap;
+}
+
+form input,
+form button{
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(18, 24, 33, 0.9);
+  color: #e6edf3;
+  outline: none;
+}
+
+form input::placeholder{ color: rgba(230, 237, 243, 0.55); }
+
+form button{
+  background: #1fdf64;
+  border: none;
+  font-weight: 800;
+  cursor: pointer;
+  color: #07110a;
+}
+
+form button:hover{ filter: brightness(1.05); }
+
+/* ================== CONTENT (solo esto scrollea) ================== */
+.content{
+  height: calc(100vh - 230px);
+  overflow-y: auto;
+  padding-right: 6px;
+
+  /* no cortar primera fila */
+  padding-top: 18px;
+
+  /* efecto “pasa por detrás” arriba */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0.15) 0px,
+    rgba(0,0,0,0.55) 26px,
+    rgba(0,0,0,1) 90px
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0.15) 0px,
+    rgba(0,0,0,0.55) 26px,
+    rgba(0,0,0,1) 90px
+  );
+}
+
+.content::-webkit-scrollbar{ width: 8px; }
+.content::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,0.15);
+  border-radius: 6px;
+}
+.content::-webkit-scrollbar-thumb:hover{ background: rgba(255,255,255,0.25); }
+
+/* ================== GRID ================== */
+.grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+/* ================== CARD ================== */
+.item{
+  position: relative;
+  background:
+    linear-gradient(rgba(20,20,20,0.88), rgba(20,20,20,0.88)),
+    url("card-bg.jpg");
+  background-size: 180px 180px;
+  background-repeat: repeat;
+
+  border-radius: 16px;
+  padding: 16px 14px 18px;
+  text-align: center;
+  min-height: 220px;
+
+  box-shadow: 0 10px 24px rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.08);
+
+  /* drag feel */
+  cursor: grab;
+  user-select: none;
+  touch-action: none; /* clave para pointer drag en touch */
+}
+
+.item:active{ cursor: grabbing; }
+
+.item.dragging{
+  opacity: 0.55;
+  transform: scale(0.98);
+}
+
+.item.drop-target{
+  outline: 2px dashed rgba(255,255,255,0.35);
+  outline-offset: 6px;
+}
+
+/* ================== STATUS CIRCLE ================== */
+.item .circle{
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  margin: 6px auto 12px auto;
+
+  background: radial-gradient(circle at 30% 30%, #666, #333 60%, #111 100%);
+  border: 2px solid rgba(255,255,255,0.15);
+
+  box-shadow:
+    inset 0 2px 4px rgba(255,255,255,0.15),
+    inset 0 -4px 6px rgba(0,0,0,0.6),
+    0 0 8px rgba(0,0,0,0.7);
+}
+
+.item.ok .circle{
+  background: radial-gradient(circle at 30% 30%, #7CFF9E, #1fdf64 45%, #128a3f 75%, #0b4f27 100%);
+  border-color: rgba(31,223,100,0.55);
+  box-shadow:
+    inset 0 2px 4px rgba(255,255,255,0.35),
+    inset 0 -4px 6px rgba(0,0,0,0.55),
+    0 0 18px rgba(31,223,100,0.6);
+}
+
+.item.fail .circle{
+  background: radial-gradient(circle at 30% 30%, #FF8A8A, #e63946 45%, #a1202a 75%, #5c0f16 100%);
+  border-color: rgba(230,57,70,0.55);
+  box-shadow:
+    inset 0 2px 4px rgba(255,255,255,0.35),
+    inset 0 -4px 6px rgba(0,0,0,0.55),
+    0 0 18px rgba(230,57,70,0.6);
+}
+
+/* ================== TEXT ================== */
+.item .name{
+  margin-top: 6px;
+  font-weight: 900;
+  font-size: 1.15rem;
+  letter-spacing: 0.4px;
+  color: #ffffff;
+  text-transform: uppercase;
+}
+
+.item .ip{
+  margin-top: 4px;
+  font-size: 0.92em;
+  opacity: 0.92;
+}
+
+.item .meta{
+  margin-top: 10px;
+  font-size: 0.82em;
+  color: #9aa4b2;
+  line-height: 1.35;
+}
+
+/* ================== DELETE ================== */
+.delete{
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  color: #e63946;
+  font-weight: 900;
+  cursor: pointer;
+  font-size: 15px;
+  opacity: 0.75;
+  user-select: none;
+}
+.delete:hover{ opacity: 1; transform: scale(1.15); }
+
+/* ================== EDIT ================== */
+.edit-btn{
+  margin-top: 14px;
+  width: 100%;
+  padding: 9px 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: #e6edf3;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.edit-btn:hover{ background: rgba(255,255,255,0.14); }
+
+/* ================== SHUTDOWN ================== */
+#shutdown-btn{
+  background: linear-gradient(135deg, #e63946, #c1121f);
+  color: #fff;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(230,57,70,0.45);
+}
+
+/* ================== FULLSCREEN ================== */
+.fullscreen-btn{
+  background: rgba(31,41,55,0.85);
+  color: #e5e7eb;
+  border: 1px solid rgba(55,65,81,0.9);
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* ================== RESPONSIVE ================== */
+@media (max-width: 480px){
+  body{ padding: 16px; }
+  h1{ font-size: 26px; }
+  .grid{ grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .item{ min-height: 210px; }
+  .item .circle{ width: 62px; height: 62px; }
+  .content{ height: calc(100vh - 260px); padding-top: 22px; }
+}
+
+/* ================== MODALES ================== */
+.modal{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.modal.hidden{ display: none; }
+
+.modal-box{
+  width: 380px;
+  background:
+    linear-gradient(rgba(20,20,20,0.92), rgba(20,20,20,0.92)),
+    url("card-bg.jpg");
+  background-size: 180px 180px;
+  background-repeat: repeat;
+
+  border-radius: 18px;
+  padding: 22px 22px 20px;
+  text-align: center;
+
+  box-shadow: 0 20px 50px rgba(0,0,0,0.75);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.modal-box h3{
+  margin: 0 0 18px 0;
+  font-size: 18px;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.modal-box input{
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(18, 24, 33, 0.95);
+  color: #e6edf3;
+  font-size: 14px;
+  outline: none;
+}
+
+.modal-box input::placeholder{ color: rgba(230,237,243,0.55); }
+
+.modal-box p{
+  font-size: 14px;
+  color: #cbd5e1;
+  margin-bottom: 18px;
+}
+
+.modal-actions{
+  display: flex;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.modal-actions button{
+  flex: 1;
+  padding: 11px 0;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 14px;
+}
+
+#cancelBtn,
+#editCancelBtn{
+  background: rgba(255,255,255,0.12);
+  color: #e5e7eb;
+}
+
+#cancelBtn:hover,
+#editCancelBtn:hover{
+  background: rgba(255,255,255,0.2);
+}
+
+#confirmBtn{
+  background: linear-gradient(135deg, #e63946, #b1121c);
+  color: #fff;
+}
+
+#confirmBtn:hover{ filter: brightness(1.05); }
+
+#editSaveBtn{
+  background: linear-gradient(135deg, #1fdf64, #16a34a);
+  color: #07110a;
+}
+
+#editSaveBtn:hover{ filter: brightness(1.05); }

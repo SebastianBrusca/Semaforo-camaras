@@ -1,0 +1,9 @@
+# Datos locales
+data/ips.json
+
+# Python
+__pycache__/
+.venv/
+
+# Entorno
+.env

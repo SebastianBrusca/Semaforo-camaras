@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>IP Scanner Monitor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<!-- BOTONES SUPERIORES -->
+<div class="top-actions">
+  <button id="shutdown-btn" type="button">⏻ Cerrar semáforo</button>
+  <button id="fullscreenBtn" class="fullscreen-btn" type="button">⛶ Pantalla completa</button>
+</div>
+
+<!-- HEADER FIJO (no scrollea) -->
+<div class="header-fixed">
+
+  <!-- TÍTULO -->
+  <header class="title">
+    <h1>🚦 IP Scanner Monitor</h1>
+    <p>Monitoreo en tiempo real de dispositivos IP</p>
+  </header>
+
+  <!-- FORM -->
+  <form id="form">
+    <input id="name" placeholder="Nombre (opcional)">
+    <input id="ip" placeholder="IP (ej: 10.10.8.101)" required>
+    <button type="submit">Agregar</button>
+  </form>
+
+</div>
+
+<!-- CONTENIDO (solo esto scrollea) -->
+<div class="content">
+  <div id="grid" class="grid"></div>
+</div>
+
+<!-- ================== MODAL CONFIRMAR ================== -->
+<div id="confirmModal" class="modal hidden">
+  <div class="modal-box">
+    <h3 id="confirmTitle">Confirmar acción</h3>
+    <p id="confirmText"></p>
+
+    <div class="modal-actions">
+      <button id="cancelBtn" type="button">Cancelar</button>
+      <button id="confirmBtn" type="button">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================== MODAL EDITAR ================== -->
+<div id="editModal" class="modal hidden">
+  <div class="modal-box">
+    <h3>Editar cámara</h3>
+
+    <input id="editName" placeholder="Nombre">
+    <input id="editIp" placeholder="IP">
+
+    <div class="modal-actions">
+      <button id="editCancelBtn" type="button">Cancelar</button>
+      <button id="editSaveBtn" type="button">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================== CONFIG ================== */
+const REFRESH_MS = 1000;
+
+const grid = document.getElementById("grid");
+const form = document.getElementById("form");
+const nameInput = document.getElementById("name");
+const ipInput = document.getElementById("ip");
+const fullscreenBtn = document.getElementById("fullscreenBtn");
+
+/* ================== MODAL CONFIRM ================== */
+const confirmModal = document.getElementById("confirmModal");
+const confirmText = document.getElementById("confirmText");
+const confirmBtn = document.getElementById("confirmBtn");
+const cancelBtn = document.getElementById("cancelBtn");
+const confirmTitle = document.getElementById("confirmTitle");
+
+let confirmResolve = null;
+
+function showConfirm(title, message){
+  confirmTitle.textContent = title;
+  confirmText.textContent = message;
+  confirmModal.classList.remove("hidden");
+  return new Promise(resolve => confirmResolve = resolve);
+}
+
+confirmBtn.onclick = () => {
+  confirmModal.classList.add("hidden");
+  if (confirmResolve) confirmResolve(true);
+};
+
+cancelBtn.onclick = () => {
+  confirmModal.classList.add("hidden");
+  if (confirmResolve) confirmResolve(false);
+};
+
+/* ================== MODAL EDIT ================== */
+const editModal = document.getElementById("editModal");
+const editName = document.getElementById("editName");
+const editIp = document.getElementById("editIp");
+const editSaveBtn = document.getElementById("editSaveBtn");
+const editCancelBtn = document.getElementById("editCancelBtn");
+
+let editingCam = null;
+
+editCancelBtn.onclick = () => {
+  editModal.classList.add("hidden");
+  editingCam = null;
+};
+
+/* ================== RENDER CONTROL ================== */
+let isDragging = false;
+let lastRenderKey = "";
+
+/* Firma del render: si no cambia, no tocamos el DOM */
+function buildRenderKey(cameras){
+  return cameras
+    .map(c => `${c.ip}|${c.name || ""}|${c.online ? 1 : 0}|${c.last_seen || ""}`)
+    .join("~~");
+}
+
+/* ================== POINTER DRAG STATE ================== */
+let dragSrcEl = null;
+let dragTargetEl = null;
+let dragSrcIP = null;
+
+function clearDropTargets(){
+  document.querySelectorAll(".item.drop-target").forEach(el => el.classList.remove("drop-target"));
+}
+
+function endDrag(){
+  isDragging = false;
+  if (dragSrcEl) dragSrcEl.classList.remove("dragging");
+  dragSrcEl = null;
+  dragTargetEl = null;
+  dragSrcIP = null;
+  clearDropTargets();
+}
+
+/* ================== RENDER ================== */
+function render(cameras){
+  const newKey = buildRenderKey(cameras);
+  if (newKey === lastRenderKey) return;
+  lastRenderKey = newKey;
+
+  grid.innerHTML = "";
+
+  cameras.forEach(cam => {
+    const div = document.createElement("div");
+    div.className = "item " + (cam.online ? "ok" : "fail");
+    div.dataset.ip = cam.ip;
+
+    div.innerHTML = `
+      <div class="circle"></div>
+      <div class="delete" title="Eliminar cámara">✖</div>
+
+      <div class="name">${cam.name ?? ""}</div>
+      <div class="ip">${cam.ip}</div>
+
+      <div class="meta">
+        ${cam.online ? "Online" : "Offline"}
+        ${cam.last_seen ? `<br>Último OK: ${cam.last_seen}` : ""}
+      </div>
+
+      <button class="edit-btn" type="button">Editar</button>
+    `;
+
+    /* ===== ELIMINAR ===== */
+    div.querySelector(".delete").onclick = async (e) => {
+      e.stopPropagation();
+
+      const ok = await showConfirm("Eliminar cámara", `¿Eliminar la cámara ${cam.ip}?`);
+      if (!ok) return;
+
+      const r = await fetch("/api/ips", { cache: "no-store" });
+      const list = r.ok ? await r.json() : [];
+
+      await fetch("/api/ips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(list.filter(i => i.ip !== cam.ip))
+      });
+
+      await actualizar(true);
+    };
+
+    /* ===== EDITAR ===== */
+    div.querySelector(".edit-btn").onclick = (e) => {
+      e.stopPropagation();
+      editingCam = cam;
+      editName.value = cam.name ?? "";
+      editIp.value = cam.ip ?? "";
+      editModal.classList.remove("hidden");
+    };
+
+    /* ===== DRAG por POINTER (robusto) ===== */
+    div.addEventListener("pointerdown", (e) => {
+      // Si tocó botones, no arrastrar
+      if (e.target.closest(".edit-btn") || e.target.closest(".delete")) return;
+      if (confirmModal && !confirmModal.classList.contains("hidden")) return;
+      if (editModal && !editModal.classList.contains("hidden")) return;
+
+      isDragging = true;
+      dragSrcEl = div;
+      dragSrcIP = div.dataset.ip;
+
+      div.classList.add("dragging");
+      div.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+
+    div.addEventListener("pointermove", (e) => {
+      if (!isDragging || !dragSrcEl) return;
+
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const item = el ? el.closest(".item") : null;
+
+      clearDropTargets();
+
+      if (item && item !== dragSrcEl) {
+        dragTargetEl = item;
+        item.classList.add("drop-target");
+      } else {
+        dragTargetEl = null;
+      }
+    });
+
+    div.addEventListener("pointerup", async (e) => {
+      if (!isDragging || !dragSrcEl) return;
+
+      const target = dragTargetEl;
+      const srcIP = dragSrcIP;
+      const targetIP = target ? target.dataset.ip : null;
+
+      endDrag();
+
+      if (srcIP && targetIP && srcIP !== targetIP) {
+        await reorderIPs(srcIP, targetIP);
+      }
+    });
+
+    div.addEventListener("pointercancel", () => {
+      endDrag();
+    });
+
+    grid.appendChild(div);
+  });
+}
+
+/* ================== REORDENAR ================== */
+async function reorderIPs(srcIP, targetIP){
+  try{
+    const r = await fetch("/api/ips", { cache: "no-store" });
+    const list = r.ok ? await r.json() : [];
+
+    const srcIndex = list.findIndex(i => i.ip === srcIP);
+    const targetIndex = list.findIndex(i => i.ip === targetIP);
+    if (srcIndex < 0 || targetIndex < 0) return;
+
+    const [moved] = list.splice(srcIndex, 1);
+    list.splice(targetIndex, 0, moved);
+
+    await fetch("/api/ips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(list)
+    });
+
+    await actualizar(true);
+  } catch(e){}
+}
+
+/* ================== STATUS ================== */
+async function actualizar(force = false){
+  if (isDragging) return; // ✅ no pisar el drag
+  try{
+    const r = await fetch("/api/status", { cache: "no-store" });
+    if (!r.ok) return;
+
+    const data = await r.json();
+    if (force) lastRenderKey = "";
+    render(data);
+  } catch(e){}
+}
+
+/* ================== FORM ================== */
+form.onsubmit = async (e) => {
+  e.preventDefault();
+
+  const name = nameInput.value.trim();
+  const ip = ipInput.value.trim();
+  if (!ip) return;
+
+  const r = await fetch("/api/ips", { cache: "no-store" });
+  const list = r.ok ? await r.json() : [];
+
+  list.push({ name, ip });
+
+  await fetch("/api/ips", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(list)
+  });
+
+  nameInput.value = "";
+  ipInput.value = "";
+
+  await actualizar(true);
+};
+
+/* ================== EDIT SAVE ================== */
+editSaveBtn.onclick = async () => {
+  if (!editingCam) return;
+
+  const newName = editName.value.trim();
+  const newIp = editIp.value.trim();
+  if (!newIp) return;
+
+  const r = await fetch("/api/ips", { cache: "no-store" });
+  const list = r.ok ? await r.json() : [];
+
+  const nuevaLista = list.map(i =>
+    i.ip === editingCam.ip
+      ? { name: newName, ip: newIp }
+      : i
+  );
+
+  await fetch("/api/ips", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(nuevaLista)
+  });
+
+  editModal.classList.add("hidden");
+  editingCam = null;
+
+  await actualizar(true);
+};
+
+/* ================== CERRAR SEMÁFORO ================== */
+document.getElementById("shutdown-btn").onclick = async () => {
+  const ok = await showConfirm("Cerrar semáforo", "¿Seguro que querés cerrar el semáforo?");
+  if (ok) location.href = "/shutdown";
+};
+
+/* ================== FULLSCREEN ================== */
+fullscreenBtn.onclick = () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+    fullscreenBtn.textContent = "⛶ Salir de pantalla completa";
+  } else {
+    document.exitFullscreen();
+    fullscreenBtn.textContent = "⛶ Pantalla completa";
+  }
+};
+
+/* ================== LOOP ================== */
+actualizar(true);
+setInterval(actualizar, REFRESH_MS);
+</script>
+
+</body>
+</html>
